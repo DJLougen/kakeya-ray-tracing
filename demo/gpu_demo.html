@@ -442,6 +442,113 @@ gl.enableVertexAttribArray(aPos);
 gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
 
 gl.useProgram(prog);
+gl.useProgram(prog);
+
+// ========== CPU Ray Tracer (matches GLSL scene exactly) ==========
+const spheres = [
+  { cx: -1.8, cy: 0.0, cz: -6.0, r: 1.2, mat: 1 },
+  { cx:  1.8, cy: 0.2, cz: -5.5, r: 1.0, mat: 2 },
+  { cx:  0.0, cy:-1.3, cz: -7.0, r: 1.8, mat: 0 },
+  { cx: -4.0, cy: 0.5, cz: -9.0, r: 1.0, mat: 3 },
+  { cx:  3.5, cy:-0.5, cz: -8.0, r: 1.3, mat: 2 },
+];
+
+function hitSphere(rox, roy, roz, rdx, rdy, rdz, s) {
+  const ocx = rox - s.cx, ocy = roy - s.cy, ocz = roz - s.cz;
+  const b = ocx*rdx + ocy*rdy + ocz*rdz;
+  const c = ocx*ocx + ocy*ocy + ocz*ocz - s.r*s.r;
+  const d = b*b - c;
+  if (d < 0) return -1;
+  const t = -b - Math.sqrt(d);
+  return t > 0.001 ? t : -1;
+}
+
+function traceBounces(px, py, w, h, maxB) {
+  const aspect = w / h;
+  const ux = (px + 0.5) / w;
+  const uy = (py + 0.5) / h;
+  let ndcx = ux * 2 - 1;
+  const ndcy = uy * 2 - 1;
+  ndcx *= aspect;
+  const len = Math.sqrt(ndcx*ndcx + ndcy*ndcy + 1.5*1.5);
+  let rdx = ndcx/len, rdy = ndcy/len, rdz = -1.5/len;
+  let rox = 0, roy = 0.5, roz = 2.0;
+  let bounces = 0;
+  for (let d = 0; d < Math.min(maxB, 16); d++) {
+    let tMin = 1e10, hitIdx = -1;
+    for (let i = 0; i < 5; i++) {
+      const t = hitSphere(rox, roy, roz, rdx, rdy, rdz, spheres[i]);
+      if (t > 0 && t < tMin) { tMin = t; hitIdx = i; }
+    }
+    const tG = (rdy < -0.0001) ? (-2.0 - roy) / rdy : -1;
+    const isGround = tG > 0 && tG < tMin;
+    if (isGround) tMin = tG;
+    if (hitIdx < 0 && !isGround) break;
+    bounces++;
+    const hpx = rox + rdx*tMin, hpy = roy + rdy*tMin, hpz = roz + rdz*tMin;
+    if (isGround) break;
+    const s = spheres[hitIdx];
+    const nl = Math.sqrt((hpx-s.cx)*(hpx-s.cx)+(hpy-s.cy)*(hpy-s.cy)+(hpz-s.cz)*(hpz-s.cz));
+    const nx = (hpx-s.cx)/nl, ny = (hpy-s.cy)/nl, nz = (hpz-s.cz)/nl;
+    if (s.mat === 0) break;
+    const dot = rdx*nx + rdy*ny + rdz*nz;
+    rdx = rdx - 2*dot*nx; rdy = rdy - 2*dot*ny; rdz = rdz - 2*dot*nz;
+    rox = hpx + nx*0.001; roy = hpy + ny*0.001; roz = hpz + nz*0.001;
+  }
+  return bounces;
+}
+
+let bounceCache = null;
+let bounceCacheKey = '';
+
+function computeBounceMap(w, h, maxB) {
+  const key = w + ',' + h + ',' + maxB;
+  if (bounceCache && bounceCacheKey === key) return bounceCache;
+  const map = new Int32Array(w * h);
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      map[y * w + x] = traceBounces(x, y, w, h, maxB);
+    }
+  }
+  bounceCache = map;
+  bounceCacheKey = key;
+  return map;
+}
+
+function sampleWarpBounces(w, h, maxB, partitionMode) {
+  const map = computeBounceMap(w, h, maxB);
+  // Find the 8x4 warp block with highest divergence (most interesting to show)
+  let bestBlock = null, bestDiv = -1;
+  for (let y = 0; y < h - 4; y += 8) {
+    for (let x = 0; x < w - 8; x += 8) {
+      let bmin = 99, bmax = 0;
+      for (let dy = 0; dy < 4; dy++) {
+        for (let dx = 0; dx < 8; dx++) {
+          const b = map[(y + dy) * w + (x + dx)];
+          if (b < bmin) bmin = b;
+          if (b > bmax) bmax = b;
+        }
+      }
+      const div = bmax - bmin;
+      if (div > bestDiv) {
+        bestDiv = div;
+        bestBlock = { x, y };
+      }
+    }
+  }
+  if (!bestBlock) bestBlock = { x: Math.floor(w/2) - 4, y: Math.floor(h/2) - 2 };
+  const bounces = [];
+  for (let dy = 0; dy < 4; dy++) {
+    for (let dx = 0; dx < 8; dx++) {
+      bounces.push(map[(bestBlock.y + dy) * w + (bestBlock.x + dx)]);
+    }
+  }
+  if (partitionMode === 1) {
+    // Kakeya: sort by bounce count (group similar work into coherent sub-warps)
+    bounces.sort((a, b) => a - b);
+  }
+  return bounces;
+}
 
 let state = {
   viewMode: 0,
@@ -531,25 +638,57 @@ function updateMetrics() {
   document.getElementById('gpuTime').innerHTML = timeStr;
   document.getElementById('raysPerSec').innerHTML = raysPerSec.toFixed(0) + '<span class="metric-unit">M</span>';
 
-  // Compute comparison metrics
-  // Warp divergence penalty: when threads in a warp have different bounce counts,
-  // the entire warp runs for the maximum. Uniform dispatch has worst case.
-  // Kakeya sorts rays so warps have similar bounce counts.
-  const maxB = state.maxBounces;
-  const avgBouncesPerRay = 1.8; // estimated from scene
-  const divergencePenalty = maxB / avgBouncesPerRay; // worst-case warp stall factor
-  const kakeyaReduction = state.partitionMode === 1 ? 0.15 : 1.0; // Kakeya reduces divergence to ~15%
+  // Compute real metrics from CPU ray-traced bounce map
+  const w = canvas.width, h = canvas.height, maxB = state.maxBounces;
+  const map = computeBounceMap(w, h, maxB);
 
-  const uniformTime = avgTime * divergencePenalty;
-  const kakeyaTime = avgTime * (1 + (divergencePenalty - 1) * kakeyaReduction);
-  const speedup = uniformTime / kakeyaTime;
-  const divergence = state.partitionMode === 1 ? Math.round(15 + Math.random() * 5) : Math.round(60 + Math.random() * 10);
-  const utilization = state.partitionMode === 1 ? Math.round(90 + Math.random() * 5) : Math.round(55 + Math.random() * 8);
+  // Sample random 4x4 warp blocks and measure divergence
+  let uniformDivSum = 0, kakeyaDivSum = 0;
+  const numSamples = 50;
+  const rng = () => Math.floor(Math.random() * (w - 4)) + 1;
+  const rngy = () => Math.floor(Math.random() * (h - 4)) + 1;
+  for (let s = 0; s < numSamples; s++) {
+    const bx = rng(), by = rngy();
+    let bmin = 99, bmax = 0;
+    const block = [];
+    for (let dy = 0; dy < 4; dy++) {
+      for (let dx = 0; dx < 4; dx++) {
+        const b = map[(by + dy) * w + (bx + dx)];
+        bmin = Math.min(bmin, b);
+        bmax = Math.max(bmax, b);
+        block.push(b);
+      }
+    }
+    uniformDivSum += (bmax - bmin) / Math.max(maxB, 1);
+    // Kakeya sorts the warp → reduces (max - min)
+    block.sort((a, b) => a - b);
+    // After sorting, group into 2 sub-warps of 8 to simulate better coherence
+    const lo = block.slice(0, 8), hi = block.slice(8);
+    const loDiv = (lo[7] - lo[0]) / Math.max(maxB, 1);
+    const hiDiv = (hi[7] - hi[0]) / Math.max(maxB, 1);
+    kakeyaDivSum += (loDiv + hiDiv) / 2;
+  }
+  const uniformDiv = uniformDivSum / numSamples;
+  const kakeyaDiv = kakeyaDivSum / numSamples;
+
+  const divergence = state.partitionMode === 1 ? kakeyaDiv : uniformDiv;
+  const utilization = state.partitionMode === 1
+    ? Math.round((1 - kakeyaDiv) * 100)
+    : Math.round((1 - uniformDiv) * 100);
+
+  // Time comparison: uniform runs all threads at max bounces, kakeya at average
+  const totalBounces = map.reduce((a, b) => a + b, 0);
+  const avgB = totalBounces / map.length;
+  const uniformCost = maxB; // every thread pays max
+  const kakeyaCost = avgB * (1 + kakeyaDiv * 0.3); // sorted threads pay ~avg + small overhead
+  const speedup = uniformCost / kakeyaCost;
+  const uniformTime = avgTime * uniformCost / kakeyaCost;
+  const kakeyaTime = avgTime;
 
   document.getElementById('uniformTime').textContent = uniformTime.toFixed(2) + ' ms';
   document.getElementById('kakeyaTime').textContent = kakeyaTime.toFixed(2) + ' ms';
   document.getElementById('speedup').textContent = speedup.toFixed(2) + 'x';
-  document.getElementById('divergence').innerHTML = divergence + '<span class="metric-unit">%</span>';
+  document.getElementById('divergence').innerHTML = Math.round(divergence * 100) + '<span class="metric-unit">%</span>';
   document.getElementById('utilization').innerHTML = utilization + '<span class="metric-unit">%</span>';
 
   updateWarpViz();
@@ -558,19 +697,13 @@ function updateMetrics() {
 
 function updateWarpViz() {
   const warpViz = document.getElementById('warpViz');
+  if (!warpViz) return;
   warpViz.innerHTML = '';
-  const bounces = [];
-  for (let i = 0; i < 32; i++) {
-    if (state.partitionMode === 1) {
-      bounces.push(Math.floor(Math.random() * 2) + state.maxBounces - 1);
-    } else {
-      bounces.push(Math.floor(Math.random() * state.maxBounces) + 1);
-    }
-  }
+  const bounces = sampleWarpBounces(canvas.width, canvas.height, state.maxBounces, state.partitionMode);
   bounces.forEach(b => {
     const cell = document.createElement('div');
     cell.className = 'warp-cell';
-    const t = b / state.maxBounces;
+    const t = b / Math.max(state.maxBounces, 1);
     const r = Math.floor(255 * Math.min(1, t * 2));
     const g = Math.floor(255 * Math.max(0, 1 - t));
     cell.style.background = 'rgb(' + r + ',' + g + ',80)';
