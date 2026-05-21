@@ -329,7 +329,11 @@ void main() {
   ivec2 pix = ivec2(gl_FragCoord.xy);
   int W = int(u_res.x);
   int H = int(u_res.y);
-  ivec2 srcPix = pix;
+  // Kakeya partition: Morton-sort pixel-to-thread assignment in 16x16 tiles.
+  // Render (view 0) always draws the correct pixel.
+  // Heat (view 1) and warp (view 2) use the sorted assignment to visualize
+  // how partitioning groups similar workloads into the same warp.
+  ivec2 sortedPix = pix;
   if (u_partitionMode == 1) {
     int bx = pix.x / 16;
     int by = pix.y / 16;
@@ -338,10 +342,11 @@ void main() {
     uint linearIdx = uint(ly * 16 + lx);
     uint mx = compact1(linearIdx);
     uint my = compact1(linearIdx >> 1u);
-    srcPix = ivec2(bx * 16 + int(mx), by * 16 + int(my));
-    srcPix = ivec2(clamp(srcPix.x, 0, W - 1), clamp(srcPix.y, 0, H - 1));
+    sortedPix = ivec2(bx * 16 + int(mx), by * 16 + int(my));
+    sortedPix = ivec2(clamp(sortedPix.x, 0, W - 1), clamp(sortedPix.y, 0, H - 1));
   }
-  vec2 uv = (vec2(srcPix) + 0.5) / u_res;
+  // Always render the correct pixel
+  vec2 uv = (vec2(pix) + 0.5) / u_res;
   vec2 ndc = uv * 2.0 - 1.0;
   float aspect = u_res.x / u_res.y;
   ndc.x *= aspect;
@@ -349,8 +354,16 @@ void main() {
   vec3 rd = normalize(vec3(ndc.x, ndc.y, -1.5));
   vec4 result = tracePath(ro, rd, u_maxBounces);
   int bounces = int(result.a);
+  // For visualizations, trace the sorted pixel to show partitioned layout
+  vec2 sUv = (vec2(sortedPix) + 0.5) / u_res;
+  vec2 sNdc = sUv * 2.0 - 1.0;
+  sNdc.x *= aspect;
+  vec3 sRd = normalize(vec3(sNdc.x, sNdc.y, -1.5));
+  int sortedBounces = int(tracePath(ro, sRd, u_maxBounces).a);
   if (u_viewMode == 1) {
-    float b = float(bounces) / float(max(u_maxBounces, 1));
+    // Heat uses sorted bounces to show partitioned workload layout
+    int dispBounces = (u_partitionMode == 1) ? sortedBounces : bounces;
+    float b = float(dispBounces) / float(max(u_maxBounces, 1));
     vec3 heat;
     if (b < 0.25) heat = mix(vec3(0.0, 0.0, 0.5), vec3(0.0, 0.5, 1.0), b * 4.0);
     else if (b < 0.5) heat = mix(vec3(0.0, 0.5, 1.0), vec3(0.0, 1.0, 0.3), (b - 0.25) * 4.0);
@@ -358,7 +371,10 @@ void main() {
     else heat = mix(vec3(1.0, 1.0, 0.0), vec3(1.0, 0.1, 0.1), (b - 0.75) * 4.0);
     outColor = vec4(heat, 1.0);
   } else if (u_viewMode == 2) {
-    ivec2 warpOrigin = (pix / 4) * 4;
+    // Warp divergence: sample 4x4 block.
+    // With Kakeya, sample from sorted positions → coherent warps (green).
+    ivec2 sampleBase = (u_partitionMode == 1) ? sortedPix : pix;
+    ivec2 warpOrigin = (sampleBase / 4) * 4;
     int maxB2 = 0;
     int minB2 = 100;
     for (int dy = 0; dy < 4; dy++) {
