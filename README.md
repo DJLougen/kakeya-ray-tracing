@@ -46,12 +46,14 @@ The demo runs a **real GPU path tracer** using WebGL2 fragment shaders. All ray 
 
 ### Tested Performance
 
-On **NVIDIA GeForce RTX 3090**:
-- GPU frame time: **54 μs**
-- Throughput: **369M rays/sec**
-- Warp divergence (Kakeya): **0%**
-- GPU utilization: **100%**
-- Projected speedup: **14.53x**
+On **NVIDIA GeForce RTX 3090** (measured via WebGL2 timer query):
+- GPU frame time: **54 μs** *(measured)*
+- Throughput: **369M rays/sec** *(measured)*
+
+**Projected metrics** (computed from CPU bounce analysis, not actual GPU warp reordering):
+- Divergence reduction: **~65% → ~15%** *(theoretical model)*
+- Utilization improvement: **~35% → ~85%** *(theoretical model)*
+- Speedup: **~14x** *(upper bound; real OptiX/CUDA gains would be lower due to cache, memory access, and partitioning overhead)*
 
 ## How It Works
 
