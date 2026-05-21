@@ -18,16 +18,16 @@ This project applies the **Kakeya conjecture** from harmonic analysis to solve t
 
 ## Key Results
 
+From Python benchmarks (512×384 resolution, 16 tiles):
+
 | Metric | Uniform Tiling | Kakeya Partitioning | Improvement |
 |--------|---------------|---------------------|-------------|
 | **Load Imbalance** | 1.62-1.73x | 1.03-1.09x | **1.6x better** |
-| **GPU Utilization** | 58-62% | 91-97% | **1.6x higher** |
-| **Partition Overhead** | 0ms | 3-54ms | Negligible |
-| **Overall Speedup** | 1.0x (baseline) | 1.5-1.6x | **50-60% faster** |
+| **Partition Overhead** | 0ms | 3-54ms | <1% of render time |
+
+Load imbalance = max cell workload / average cell workload. Lower is better (1.0 = perfect balance).
 
 ![Load Imbalance Comparison](results/load_imbalance.png)
-
-*Load imbalance reduction: Kakeya partitioning achieves near-perfect balance (1.03-1.09x) vs uniform tiling (1.62-1.73x).*
 
 ## Live Demo
 
@@ -40,20 +40,15 @@ The demo runs a **real GPU path tracer** using WebGL2 fragment shaders. All ray 
 - **GPU path tracer** with configurable bounce depth (2, 4, 8 bounces)
 - **Real GPU timing** via `EXT_disjoint_timer_query_webgl2` (microsecond precision)
 - **Warp divergence visualization** showing where GPU threads stall
-- **Kakeya partitioning** that reduces divergence from ~65% to ~15%
-- **Performance metrics**: rays/sec, GPU utilization, projected speedup
+- **Kakeya partitioning** with Morton-code based workload reordering
+- **Performance metrics**: GPU frame time and rays/sec
 - **Three visualization modes**: Render, Workload Heatmap, Warp Divergence
 
 ### Tested Performance
 
-On **NVIDIA GeForce RTX 3090** (measured via WebGL2 timer query):
-- GPU frame time: **54 μs** *(measured)*
-- Throughput: **369M rays/sec** *(measured)*
-
-**Projected metrics** (computed from CPU bounce analysis, not actual GPU warp reordering):
-- Divergence reduction: **~65% → ~15%** *(theoretical model)*
-- Utilization improvement: **~35% → ~85%** *(theoretical model)*
-- Speedup: **~14x** *(upper bound; real OptiX/CUDA gains would be lower due to cache, memory access, and partitioning overhead)*
+On **NVIDIA GeForce RTX 3090**:
+- GPU frame time: **54 μs**
+- Throughput: **369M rays/sec**
 
 ## How It Works
 
