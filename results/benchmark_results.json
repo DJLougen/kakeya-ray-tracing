@@ -1,0 +1,248 @@
+[
+  {
+    "scene": "low_res_simple",
+    "resolution": "200x150",
+    "max_bounces": 3,
+    "render_time": 0.42739319801330566,
+    "total_workload": 36521.0,
+    "methods": {
+      "uniform": {
+        "imbalance": 1.733728289604187,
+        "utilization": 57.67916488647461,
+        "max_workload": 3914.0,
+        "avg_workload": 2257.5625,
+        "num_cells": 16,
+        "partition_time": 0.0009999275207519531,
+        "speedup": 1.7267243086863242,
+        "effective_time": 0.24751675520133404
+      },
+      "kakeya_fixed": {
+        "imbalance": 1.0935078859329224,
+        "utilization": 91.44881439208984,
+        "max_workload": 2496.0,
+        "avg_workload": 2282.5625,
+        "num_cells": 16,
+        "partition_time": 0.004000425338745117,
+        "degree": 3,
+        "speedup": 1.0824289037665784,
+        "effective_time": 0.3948464388987449
+      },
+      "kakeya_adaptive": {
+        "imbalance": 1.0935078859329224,
+        "utilization": 91.44881439208984,
+        "max_workload": 2496.0,
+        "avg_workload": 2282.5625,
+        "num_cells": 16,
+        "partition_time": 0.003000020980834961,
+        "degree": 3,
+        "speedup": 1.0851783705568647,
+        "effective_time": 0.3938460345408347
+      }
+    }
+  },
+  {
+    "scene": "low_res_complex",
+    "resolution": "200x150",
+    "max_bounces": 5,
+    "render_time": 0.4277830123901367,
+    "total_workload": 36521.0,
+    "methods": {
+      "uniform": {
+        "imbalance": 1.733728289604187,
+        "utilization": 57.67916488647461,
+        "max_workload": 3914.0,
+        "avg_workload": 2257.5625,
+        "num_cells": 16,
+        "partition_time": 0.0010013580322265625,
+        "speedup": 1.7267206948121891,
+        "effective_time": 0.24774302739023207
+      },
+      "kakeya_fixed": {
+        "imbalance": 1.0935078859329224,
+        "utilization": 91.44881439208984,
+        "max_workload": 2496.0,
+        "avg_workload": 2282.5625,
+        "num_cells": 16,
+        "partition_time": 0.0030083656311035156,
+        "degree": 3,
+        "speedup": 1.085162931806344,
+        "effective_time": 0.3942108598181255
+      },
+      "kakeya_adaptive": {
+        "imbalance": 1.0935078859329224,
+        "utilization": 91.44881439208984,
+        "max_workload": 2496.0,
+        "avg_workload": 2282.5625,
+        "num_cells": 16,
+        "partition_time": 0.0029985904693603516,
+        "degree": 3,
+        "speedup": 1.0851898410249863,
+        "effective_time": 0.3942010846563823
+      }
+    }
+  },
+  {
+    "scene": "medium_res_simple",
+    "resolution": "400x300",
+    "max_bounces": 3,
+    "render_time": 1.8583531379699707,
+    "total_workload": 146088.0,
+    "methods": {
+      "uniform": {
+        "imbalance": 1.623459815979004,
+        "utilization": 61.596839904785156,
+        "max_workload": 14823.0,
+        "avg_workload": 9130.5,
+        "num_cells": 16,
+        "partition_time": 0.014743328094482422,
+        "speedup": 1.6028158818112765,
+        "effective_time": 1.1594301997244512
+      },
+      "kakeya_fixed": {
+        "imbalance": 1.0487924814224243,
+        "utilization": 95.34774780273438,
+        "max_workload": 9576.0,
+        "avg_workload": 9130.5,
+        "num_cells": 16,
+        "partition_time": 0.021157264709472656,
+        "degree": 3,
+        "speedup": 1.0364171896473784,
+        "effective_time": 1.7930551099815708
+      },
+      "kakeya_adaptive": {
+        "imbalance": 1.0487924814224243,
+        "utilization": 95.34774780273438,
+        "max_workload": 9576.0,
+        "avg_workload": 9130.5,
+        "num_cells": 16,
+        "partition_time": 0.022104263305664062,
+        "degree": 3,
+        "speedup": 1.0358700968546934,
+        "effective_time": 1.7940021085777622
+      }
+    }
+  },
+  {
+    "scene": "medium_res_complex",
+    "resolution": "400x300",
+    "max_bounces": 5,
+    "render_time": 3.0304477214813232,
+    "total_workload": 146088.0,
+    "methods": {
+      "uniform": {
+        "imbalance": 1.623459815979004,
+        "utilization": 61.596839904785156,
+        "max_workload": 14823.0,
+        "avg_workload": 9130.5,
+        "num_cells": 16,
+        "partition_time": 0.01484370231628418,
+        "speedup": 1.6106518940734555,
+        "effective_time": 1.8815038386830447
+      },
+      "kakeya_fixed": {
+        "imbalance": 1.0487924814224243,
+        "utilization": 95.34774780273438,
+        "max_workload": 9576.0,
+        "avg_workload": 9130.5,
+        "num_cells": 16,
+        "partition_time": 0.021292686462402344,
+        "degree": 3,
+        "speedup": 1.0411203827961555,
+        "effective_time": 2.910756307875172
+      },
+      "kakeya_adaptive": {
+        "imbalance": 1.0487924814224243,
+        "utilization": 95.34774780273438,
+        "max_workload": 9576.0,
+        "avg_workload": 9130.5,
+        "num_cells": 16,
+        "partition_time": 0.02312946319580078,
+        "degree": 3,
+        "speedup": 1.04046381813359,
+        "effective_time": 2.9125930846085706
+      }
+    }
+  },
+  {
+    "scene": "high_res_simple",
+    "resolution": "600x450",
+    "max_bounces": 3,
+    "render_time": 6.757529020309448,
+    "total_workload": 328747.0,
+    "methods": {
+      "uniform": {
+        "imbalance": 1.6427565813064575,
+        "utilization": 60.873294830322266,
+        "max_workload": 33630.0,
+        "avg_workload": 20471.6875,
+        "num_cells": 16,
+        "partition_time": 0.027236223220825195,
+        "speedup": 1.6319512184872633,
+        "effective_time": 4.140766552184898
+      },
+      "kakeya_fixed": {
+        "imbalance": 1.0284383296966553,
+        "utilization": 97.23480224609375,
+        "max_workload": 21131.0,
+        "avg_workload": 20546.6875,
+        "num_cells": 16,
+        "partition_time": 0.053656816482543945,
+        "degree": 3,
+        "speedup": 1.0201080152193225,
+        "effective_time": 6.624326953118375
+      },
+      "kakeya_adaptive": {
+        "imbalance": 1.0284383296966553,
+        "utilization": 97.23480224609375,
+        "max_workload": 21131.0,
+        "avg_workload": 20546.6875,
+        "num_cells": 16,
+        "partition_time": 0.04778027534484863,
+        "degree": 3,
+        "speedup": 1.0210137720571282,
+        "effective_time": 6.61845041198068
+      }
+    }
+  },
+  {
+    "scene": "high_res_complex",
+    "resolution": "600x450",
+    "max_bounces": 5,
+    "render_time": 6.868213891983032,
+    "total_workload": 328747.0,
+    "methods": {
+      "uniform": {
+        "imbalance": 1.6427565813064575,
+        "utilization": 60.873294830322266,
+        "max_workload": 33630.0,
+        "avg_workload": 20471.6875,
+        "num_cells": 16,
+        "partition_time": 0.026559829711914062,
+        "speedup": 1.632386606218374,
+        "effective_time": 4.2074676830962865
+      },
+      "kakeya_fixed": {
+        "imbalance": 1.0284383296966553,
+        "utilization": 97.23480224609375,
+        "max_workload": 21131.0,
+        "avg_workload": 20546.6875,
+        "num_cells": 16,
+        "partition_time": 0.051677703857421875,
+        "degree": 3,
+        "speedup": 1.0205412194307366,
+        "effective_time": 6.72997205915324
+      },
+      "kakeya_adaptive": {
+        "imbalance": 1.0284383296966553,
+        "utilization": 97.23480224609375,
+        "max_workload": 21131.0,
+        "avg_workload": 20546.6875,
+        "num_cells": 16,
+        "partition_time": 0.04716897010803223,
+        "degree": 3,
+        "speedup": 1.0212253877052568,
+        "effective_time": 6.72546332540385
+      }
+    }
+  }
+]

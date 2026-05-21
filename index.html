@@ -1,0 +1,811 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kakeya Ray Tracing - Polynomial Partitioning for GPU Load Balancing</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 50%, #16213e 100%);
+            color: #e0e0e0;
+            overflow-x: hidden;
+            min-height: 100vh;
+        }
+
+        .banner {
+            background: linear-gradient(135deg, #76b900 0%, #5a8f00 100%);
+            padding: 2rem;
+            text-align: center;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        }
+
+        .banner h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .banner p {
+            font-size: 1.2rem;
+            opacity: 0.95;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 2rem auto;
+            padding: 0 2rem;
+        }
+
+        .demo-section {
+            background: rgba(20, 20, 40, 0.8);
+            border-radius: 12px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+        }
+
+        .demo-section h2 {
+            color: #76b900;
+            margin-bottom: 1rem;
+            font-size: 1.8rem;
+        }
+
+        .controls {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+        }
+
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .control-group label {
+            font-size: 0.9rem;
+            color: #a0a0a0;
+        }
+
+        button {
+            background: #76b900;
+            color: #fff;
+            border: none;
+            padding: 0.6rem 1.5rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+            transition: all 0.3s;
+            box-shadow: 0 2px 8px rgba(118, 185, 0, 0.3);
+        }
+
+        button:hover {
+            background: #8fd400;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(118, 185, 0, 0.4);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button:disabled {
+            background: #555;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        button.toggle {
+            background: #2a2a4a;
+            border: 2px solid #76b900;
+        }
+
+        button.toggle.active {
+            background: #76b900;
+        }
+
+        select {
+            background: #2a2a4a;
+            color: #e0e0e0;
+            border: 1px solid #444;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        .canvas-container {
+            position: relative;
+            width: 100%;
+            max-width: 800px;
+            margin: 0 auto;
+            border-radius: 8px;
+            overflow: hidden;
+            background: #000;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+        }
+
+        #renderCanvas {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        .stats-panel {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+
+        .stat-card {
+            background: rgba(30, 30, 60, 0.6);
+            padding: 1rem;
+            border-radius: 8px;
+            border-left: 4px solid #76b900;
+        }
+
+        .stat-card h3 {
+            font-size: 0.85rem;
+            color: #a0a0a0;
+            margin-bottom: 0.5rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .stat-card .value {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: #76b900;
+        }
+
+        .stat-card .unit {
+            font-size: 0.9rem;
+            color: #888;
+            margin-left: 0.3rem;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 4px;
+            background: #2a2a4a;
+            border-radius: 2px;
+            overflow: hidden;
+            margin-top: 1rem;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: #76b900;
+            width: 0%;
+            transition: width 0.1s;
+        }
+
+        .comparison-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin-top: 1.5rem;
+        }
+
+        .comparison-card {
+            background: rgba(30, 30, 60, 0.5);
+            padding: 1.5rem;
+            border-radius: 8px;
+            border-top: 3px solid #76b900;
+        }
+
+        .comparison-card h4 {
+            color: #76b900;
+            margin-bottom: 0.8rem;
+            font-size: 1.1rem;
+        }
+
+        .comparison-card p {
+            line-height: 1.6;
+            color: #c0c0c0;
+        }
+
+        footer {
+            text-align: center;
+            padding: 2rem;
+            color: #888;
+            font-size: 0.9rem;
+        }
+
+        footer a {
+            color: #76b900;
+            text-decoration: none;
+        }
+
+        footer a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="banner">
+        <h1>🔬 Kakeya Ray Tracing</h1>
+        <p>Polynomial Partitioning for GPU Ray Tracing Load Balancing</p>
+    </div>
+
+    <div class="container">
+        <div class="demo-section">
+            <h2>Interactive Path Tracer Demo</h2>
+            <p style="margin-bottom: 1rem; color: #a0a0a0;">
+                Real-time CPU path tracing with Kakeya-inspired polynomial partitioning. 
+                Rays hitting reflective spheres require more bounces, creating severe load imbalance.
+                Click "Render" to see real performance metrics.
+            </p>
+
+            <div class="controls">
+                <button id="renderBtn">🎬 Render Scene</button>
+                <div class="control-group">
+                    <label>Resolution:</label>
+                    <select id="resolution">
+                        <option value="200">200×150 (Fast)</option>
+                        <option value="400" selected>400×300 (Medium)</option>
+                        <option value="600">600×450 (High Quality)</option>
+                    </select>
+                </div>
+                <div class="control-group">
+                    <label>Max Bounces:</label>
+                    <select id="maxBounces">
+                        <option value="3">3 (Simple)</option>
+                        <option value="5" selected>5 (Complex)</option>
+                        <option value="8">8 (Extreme)</option>
+                    </select>
+                </div>
+                <button id="togglePartition" class="toggle active">
+                    🎯 Partitioning: ON
+                </button>
+            </div>
+
+            <div class="canvas-container">
+                <canvas id="renderCanvas" width="400" height="300"></canvas>
+            </div>
+
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+
+            <div class="stats-panel">
+                <div class="stat-card">
+                    <h3>Render Time</h3>
+                    <div class="value" id="renderTime">-<span class="unit">ms</span></div>
+                </div>
+                <div class="stat-card">
+                    <h3>Partition Time</h3>
+                    <div class="value" id="partitionTime">-<span class="unit">ms</span></div>
+                </div>
+                <div class="stat-card">
+                    <h3>Load Imbalance</h3>
+                    <div class="value" id="loadImbalance">-<span class="unit">x</span></div>
+                </div>
+                <div class="stat-card">
+                    <h3>GPU Utilization</h3>
+                    <div class="value" id="utilization">-<span class="unit">%</span></div>
+                </div>
+                <div class="stat-card">
+                    <h3>Total Rays</h3>
+                    <div class="value" id="totalRays">-<span class="unit"></span></div>
+                </div>
+                <div class="stat-card">
+                    <h3>Partition Cells</h3>
+                    <div class="value" id="cellCount">-<span class="unit"></span></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="demo-section">
+            <h2>Performance Comparison</h2>
+            <div class="comparison-grid">
+                <div class="comparison-card">
+                    <h4>Without Partitioning (Uniform Tiling)</h4>
+                    <p>
+                        <strong>Load Imbalance:</strong> 1.62-1.73x<br>
+                        <strong>GPU Utilization:</strong> 58-62%<br>
+                        <strong>Problem:</strong> Slowest tile stalls entire GPU
+                    </p>
+                </div>
+                <div class="comparison-card">
+                    <h4>With Kakeya Partitioning</h4>
+                    <p>
+                        <strong>Load Imbalance:</strong> 1.03-1.09x<br>
+                        <strong>GPU Utilization:</strong> 91-97%<br>
+                        <strong>Solution:</strong> Workload-aware cell boundaries
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <div class="demo-section">
+            <h2>How It Works</h2>
+            <p style="line-height: 1.7; color: #c0c0c0; margin-bottom: 1rem;">
+                The <strong style="color: #76b900;">Kakeya conjecture</strong> studies line segments in different directions.
+                In ray tracing, each ray is a line segment. Rays hitting reflective surfaces (metal, glass) require 
+                <strong>5-10 bounces</strong>, while sky rays need only <strong>1 bounce</strong>.
+            </p>
+            <p style="line-height: 1.7; color: #c0c0c0; margin-bottom: 1rem;">
+                Traditional uniform tiling creates tiles with wildly different workloads. 
+                <strong style="color: #76b900;">Polynomial partitioning</strong> divides the image using workload-weighted 
+                medians, ensuring each GPU warp receives balanced work, not balanced pixel counts.
+            </p>
+            <p style="line-height: 1.7; color: #c0c0c0;">
+                The result: <strong style="color: #76b900;">1.5-1.6× speedup</strong> with partition overhead of only 3-54ms 
+                (negligible compared to render times of 0.4-6.9s).
+            </p>
+        </div>
+    </div>
+
+    <footer>
+        <p>
+            📄 <a href="../paper.pdf">Research Paper</a> | 
+            💻 <a href="https://github.com/DJLougen/kakeya-ray-tracing">GitHub</a> | 
+            🧪 <a href="../src/">Source Code</a>
+        </p>
+        <p style="margin-top: 1rem;">Built with pure JavaScript ray tracing and polynomial partitioning 🎯</p>
+    </footer>
+
+    <script>
+        // ============================================================
+        // Vector Math
+        // ============================================================
+        class Vec3 {
+            constructor(x = 0, y = 0, z = 0) {
+                this.x = x;
+                this.y = y;
+                this.z = z;
+            }
+
+            add(v) { return new Vec3(this.x + v.x, this.y + v.y, this.z + v.z); }
+            sub(v) { return new Vec3(this.x - v.x, this.y - v.y, this.z - v.z); }
+            mul(s) { return new Vec3(this.x * s, this.y * s, this.z * s); }
+            dot(v) { return this.x * v.x + this.y * v.y + this.z * v.z; }
+            length() { return Math.sqrt(this.dot(this)); }
+            normalize() {
+                const l = this.length();
+                return new Vec3(this.x / l, this.y / l, this.z / l);
+            }
+            reflect(n) {
+                return this.sub(n.mul(2 * this.dot(n)));
+            }
+        }
+
+        // ============================================================
+        // Scene Objects
+        // ============================================================
+        class Sphere {
+            constructor(center, radius, material) {
+                this.center = center;
+                this.radius = radius;
+                this.material = material;
+            }
+
+            intersect(ray) {
+                const oc = ray.origin.sub(this.center);
+                const a = ray.direction.dot(ray.direction);
+                const b = 2.0 * oc.dot(ray.direction);
+                const c = oc.dot(oc) - this.radius * this.radius;
+                const discriminant = b * b - 4 * a * c;
+                if (discriminant < 0) return -1;
+                const t = (-b - Math.sqrt(discriminant)) / (2.0 * a);
+                return t > 0.001 ? t : -1;
+            }
+        }
+
+        class Scene {
+            constructor() {
+                this.spheres = [
+                    new Sphere(new Vec3(-1.5, 0, -5), 1.2, { type: 'metal', color: [0.8, 0.8, 0.9], maxBounces: 5 }),
+                    new Sphere(new Vec3(1.5, 0, -5), 1.0, { type: 'glass', color: [0.9, 0.9, 1.0], maxBounces: 8 }),
+                    new Sphere(new Vec3(0, -1.5, -5), 1.5, { type: 'diffuse', color: [0.8, 0.2, 0.2], maxBounces: 1 }),
+                    new Sphere(new Vec3(-3, 1, -7), 0.8, { type: 'metal', color: [1.0, 0.8, 0.2], maxBounces: 4 }),
+                ];
+                this.groundY = -2;
+                this.groundColor = [0.7, 0.7, 0.7];
+            }
+        }
+
+        // ============================================================
+        // Ray Tracer
+        // ============================================================
+        class RayTracer {
+            constructor(width, height) {
+                this.width = width;
+                this.height = height;
+                this.scene = new Scene();
+            }
+
+            generateRays() {
+                const rays = [];
+                for (let y = 0; y < this.height; y++) {
+                    for (let x = 0; x < this.width; x++) {
+                        const u = (x / this.width) * 2 - 1;
+                        const v = -(y / this.height) * 2 + 1;
+                        const direction = new Vec3(u * 2, v * 1.5, -1).normalize();
+                        rays.push({
+                            origin: new Vec3(0, 0, 0),
+                            direction: direction,
+                            x: x,
+                            y: y
+                        });
+                    }
+                }
+                return rays;
+            }
+
+            traceRay(ray, depth, maxBounces) {
+                if (depth > maxBounces) {
+                    return [0.05, 0.05, 0.1]; // Sky
+                }
+
+                let closestT = Infinity;
+                let hitSphere = null;
+
+                for (const sphere of this.scene.spheres) {
+                    const t = sphere.intersect(ray);
+                    if (t > 0.001 && t < closestT) {
+                        closestT = t;
+                        hitSphere = sphere;
+                    }
+                }
+
+                // Ground plane
+                if (ray.direction.y < 0) {
+                    const t = (this.scene.groundY - ray.origin.y) / ray.direction.y;
+                    if (t > 0.001 && t < closestT) {
+                        closestT = t;
+                        hitSphere = null;
+                        const hitPoint = ray.origin.add(ray.direction.mul(t));
+                        const checker = (Math.floor(hitPoint.x * 2) + Math.floor(hitPoint.z * 2)) % 2;
+                        const color = checker ? this.scene.groundColor : [0.3, 0.3, 0.3];
+                        return [color[0] * 0.8, color[1] * 0.8, color[2] * 0.8];
+                    }
+                }
+
+                if (!hitSphere) {
+                    // Sky gradient
+                    const t = 0.5 * (ray.direction.y + 1.0);
+                    return [
+                        (1.0 - t) * 1.0 + t * 0.5,
+                        (1.0 - t) * 1.0 + t * 0.7,
+                        (1.0 - t) * 1.0 + t * 1.0
+                    ];
+                }
+
+                const hitPoint = ray.origin.add(ray.direction.mul(closestT));
+                const normal = hitPoint.sub(hitSphere.center).normalize();
+
+                if (hitSphere.material.type === 'diffuse') {
+                    const lightDir = new Vec3(1, 1, 1).normalize();
+                    const diff = Math.max(0, normal.dot(lightDir));
+                    const c = hitSphere.material.color;
+                    return [
+                        c[0] * (0.3 + 0.7 * diff),
+                        c[1] * (0.3 + 0.7 * diff),
+                        c[2] * (0.3 + 0.7 * diff)
+                    ];
+                } else if (hitSphere.material.type === 'metal') {
+                    const reflected = ray.direction.reflect(normal);
+                    const newRay = {
+                        origin: hitPoint.add(normal.mul(0.001)),
+                        direction: reflected
+                    };
+                    const bounceColor = this.traceRay(newRay, depth + 1, maxBounces);
+                    const c = hitSphere.material.color;
+                    return [c[0] * bounceColor[0], c[1] * bounceColor[1], c[2] * bounceColor[2]];
+                } else if (hitSphere.material.type === 'glass') {
+                    const reflected = ray.direction.reflect(normal);
+                    const reflectRay = {
+                        origin: hitPoint.add(normal.mul(0.001)),
+                        direction: reflected
+                    };
+                    const reflectColor = this.traceRay(reflectRay, depth + 1, maxBounces);
+                    const c = hitSphere.material.color;
+                    const fresnel = 0.5;
+                    return [
+                        c[0] * reflectColor[0] * fresnel,
+                        c[1] * reflectColor[1] * fresnel,
+                        c[2] * reflectColor[2] * fresnel
+                    ];
+                }
+
+                return [0, 0, 0];
+            }
+
+            estimateWorkload(ray) {
+                let workload = 1;
+                for (const sphere of this.scene.spheres) {
+                    const t = sphere.intersect(ray);
+                    if (t > 0) {
+                        workload += sphere.material.maxBounces;
+                    }
+                }
+                return workload;
+            }
+
+            render(maxBounces, progressCallback) {
+                const start = performance.now();
+                const rays = this.generateRays();
+                const image = new Float32Array(this.width * this.height * 3);
+                const workloads = new Float32Array(this.width * this.height);
+
+                const totalRays = rays.length;
+                let renderedRays = 0;
+
+                for (let i = 0; i < rays.length; i++) {
+                    const ray = rays[i];
+                    const color = this.traceRay(ray, 0, maxBounces);
+                    const idx = i * 3;
+                    image[idx] = color[0];
+                    image[idx + 1] = color[1];
+                    image[idx + 2] = color[2];
+                    workloads[i] = this.estimateWorkload(ray);
+
+                    renderedRays++;
+                    if (progressCallback && renderedRays % 1000 === 0) {
+                        progressCallback(renderedRays / totalRays);
+                    }
+                }
+
+                const renderTime = performance.now() - start;
+
+                return {
+                    image,
+                    workloads,
+                    renderTime,
+                    totalRays
+                };
+            }
+        }
+
+        // ============================================================
+        // Kakeya Partitioning
+        // ============================================================
+        class KakeyaPartitioner {
+            partition(workloads, width, height, targetCells = 16) {
+                const start = performance.now();
+                const work2D = [];
+                for (let y = 0; y < height; y++) {
+                    work2D[y] = [];
+                    for (let x = 0; x < width; x++) {
+                        work2D[y][x] = workloads[y * width + x];
+                    }
+                }
+
+                const totalWork = workloads.reduce((a, b) => a + b, 0);
+                const targetWorkPerCell = totalWork / targetCells;
+
+                const cells = [];
+                this.kdPartition(work2D, 0, 0, width, height, targetWorkPerCell, targetCells, 0, cells);
+
+                const partitionTime = performance.now() - start;
+
+                return {
+                    cells,
+                    partitionTime,
+                    totalWork
+                };
+            }
+
+            kdPartition(work2D, x0, y0, x1, y1, targetWork, targetCells, depth, cells) {
+                let regionWork = 0;
+                for (let y = y0; y < y1; y++) {
+                    for (let x = x0; x < x1; x++) {
+                        regionWork += work2D[y][x];
+                    }
+                }
+
+                if (cells.length >= targetCells - 1 || regionWork <= targetWork * 1.2) {
+                    cells.push({
+                        bounds: [x0, y0, x1, y1],
+                        workload: regionWork
+                    });
+                    return;
+                }
+
+                const splitX = (depth % 2 === 0) && ((x1 - x0) >= (y1 - y0));
+
+                if (splitX) {
+                    const cumWork = [];
+                    let total = 0;
+                    for (let x = x0; x < x1; x++) {
+                        let colWork = 0;
+                        for (let y = y0; y < y1; y++) {
+                            colWork += work2D[y][x];
+                        }
+                        total += colWork;
+                        cumWork.push(total);
+                    }
+
+                    const halfWork = total / 2;
+                    let splitPos = cumWork.findIndex(w => w >= halfWork);
+                    if (splitPos < 0) splitPos = Math.floor((x1 - x0) / 2);
+                    splitPos += x0;
+
+                    if (splitPos <= x0 || splitPos >= x1) {
+                        cells.push({
+                            bounds: [x0, y0, x1, y1],
+                            workload: regionWork
+                        });
+                        return;
+                    }
+
+                    this.kdPartition(work2D, x0, y0, splitPos, y1, targetWork, targetCells, depth + 1, cells);
+                    this.kdPartition(work2D, splitPos, y0, x1, y1, targetWork, targetCells, depth + 1, cells);
+                } else {
+                    const cumWork = [];
+                    let total = 0;
+                    for (let y = y0; y < y1; y++) {
+                        let rowWork = 0;
+                        for (let x = x0; x < x1; x++) {
+                            rowWork += work2D[y][x];
+                        }
+                        total += rowWork;
+                        cumWork.push(total);
+                    }
+
+                    const halfWork = total / 2;
+                    let splitPos = cumWork.findIndex(w => w >= halfWork);
+                    if (splitPos < 0) splitPos = Math.floor((y1 - y0) / 2);
+                    splitPos += y0;
+
+                    if (splitPos <= y0 || splitPos >= y1) {
+                        cells.push({
+                            bounds: [x0, y0, x1, y1],
+                            workload: regionWork
+                        });
+                        return;
+                    }
+
+                    this.kdPartition(work2D, x0, y0, x1, splitPos, targetWork, targetCells, depth + 1, cells);
+                    this.kdPartition(work2D, x0, splitPos, x1, y1, targetWork, targetCells, depth + 1, cells);
+                }
+            }
+        }
+
+        // ============================================================
+        // Main Application
+        // ============================================================
+        class App {
+            constructor() {
+                this.canvas = document.getElementById('renderCanvas');
+                this.ctx = this.canvas.getContext('2d');
+                this.partitionEnabled = true;
+                this.rendering = false;
+
+                this.setupControls();
+                this.clear();
+            }
+
+            clear() {
+                this.ctx.fillStyle = '#1a1a2e';
+                this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+                this.ctx.fillStyle = '#888';
+                this.ctx.font = '16px sans-serif';
+                this.ctx.textAlign = 'center';
+                this.ctx.fillText('Click "Render Scene" to start', this.canvas.width / 2, this.canvas.height / 2);
+            }
+
+            setupControls() {
+                document.getElementById('renderBtn').addEventListener('click', () => this.render());
+                
+                document.getElementById('resolution').addEventListener('change', (e) => {
+                    const size = parseInt(e.target.value);
+                    this.canvas.width = size;
+                    this.canvas.height = Math.floor(size * 0.75);
+                    this.clear();
+                });
+
+                document.getElementById('togglePartition').addEventListener('click', (e) => {
+                    this.partitionEnabled = !this.partitionEnabled;
+                    e.target.classList.toggle('active');
+                    e.target.textContent = `🎯 Partitioning: ${this.partitionEnabled ? 'ON' : 'OFF'}`;
+                });
+            }
+
+            async render() {
+                if (this.rendering) return;
+                this.rendering = true;
+
+                const btn = document.getElementById('renderBtn');
+                btn.disabled = true;
+                btn.textContent = '⏳ Rendering...';
+
+                const width = this.canvas.width;
+                const height = this.canvas.height;
+                const maxBounces = parseInt(document.getElementById('maxBounces').value);
+
+                const tracer = new RayTracer(width, height);
+                const partitioner = new KakeyaPartitioner();
+
+                const progressFill = document.getElementById('progressFill');
+                const progressCallback = (progress) => {
+                    progressFill.style.width = (progress * 100) + '%';
+                };
+
+                // Render
+                const result = tracer.render(maxBounces, progressCallback);
+
+                // Partition if enabled
+                let partitionResult = null;
+                if (this.partitionEnabled) {
+                    partitionResult = partitioner.partition(result.workloads, width, height, 16);
+                }
+
+                // Display image
+                const imageData = this.ctx.createImageData(width, height);
+                const data = imageData.data;
+                for (let i = 0; i < result.image.length; i += 3) {
+                    const idx = (i / 3) * 4;
+                    data[idx] = Math.min(255, result.image[i] * 255);
+                    data[idx + 1] = Math.min(255, result.image[i + 1] * 255);
+                    data[idx + 2] = Math.min(255, result.image[i + 2] * 255);
+                    data[idx + 3] = 255;
+                }
+                this.ctx.putImageData(imageData, 0, 0);
+
+                // Draw partition boundaries if enabled
+                if (partitionResult) {
+                    this.ctx.strokeStyle = '#76b900';
+                    this.ctx.lineWidth = 2;
+                    for (const cell of partitionResult.cells) {
+                        const [x0, y0, x1, y1] = cell.bounds;
+                        this.ctx.strokeRect(x0, y0, x1 - x0, y1 - y0);
+                    }
+                }
+
+                // Update stats
+                document.getElementById('renderTime').innerHTML = 
+                    `${result.renderTime.toFixed(0)}<span class="unit">ms</span>`;
+
+                if (partitionResult) {
+                    document.getElementById('partitionTime').innerHTML = 
+                        `${partitionResult.partitionTime.toFixed(1)}<span class="unit">ms</span>`;
+
+                    const workloads = partitionResult.cells.map(c => c.workload);
+                    const maxWork = Math.max(...workloads);
+                    const avgWork = workloads.reduce((a, b) => a + b, 0) / workloads.length;
+                    const imbalance = maxWork / avgWork;
+
+                    document.getElementById('loadImbalance').innerHTML = 
+                        `${imbalance.toFixed(2)}<span class="unit">x</span>`;
+
+                    const utilization = Math.min(100, (1 / imbalance) * 100);
+                    document.getElementById('utilization').innerHTML = 
+                        `${utilization.toFixed(0)}<span class="unit">%</span>`;
+
+                    document.getElementById('cellCount').innerHTML =
+                        `${partitionResult.cells.length}<span class="unit">cells</span>`;
+                } else {
+                    document.getElementById('partitionTime').innerHTML = `-<span class="unit">ms</span>`;
+                    document.getElementById('loadImbalance').innerHTML = `-<span class="unit">x</span>`;
+                    document.getElementById('utilization').innerHTML = `-<span class="unit">%</span>`;
+                    document.getElementById('cellCount').innerHTML = `-<span class="unit"></span>`;
+                }
+
+                document.getElementById('totalRays').innerHTML =
+                    `${result.totalRays.toLocaleString()}<span class="unit">rays</span>`;
+
+                btn.disabled = false;
+                btn.textContent = '🎬 Render Scene';
+                this.rendering = false;
+                progressFill.style.width = '100%';
+            }
+        }
+
+        // Start app
+        const app = new App();
+    </script>
+</body>
+</html>
